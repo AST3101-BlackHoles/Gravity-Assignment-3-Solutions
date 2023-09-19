@@ -39,3 +39,14 @@ Simulated data was generated via
     --prior tau 0.1 10.0 \
     --verbose
 ```
+
+We run our search via
+```
+./search \
+    assignment-3.hdf \
+    --verbose
+```
+
+which produces
+
+**WRITE THIS**
