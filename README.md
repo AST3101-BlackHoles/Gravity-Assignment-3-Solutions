@@ -1,0 +1,41 @@
+# Gravity Assignment 3
+
+  * 30% of final grade
+  * assigned 29 Sep 2023
+  * due 13 Oct 2023
+
+---
+
+## Problem 1
+
+> There are snippets of simulated data for a hypothetical into which we will inject a few signals.
+> Your job is to write a matched-filter search from scratch to detect these signals.
+>
+> Write a matched filter search and use it to determine
+> 
+>   * the number of signals present
+>   * the statistical significance of each signal (i.e., a FAR)
+>   * the physical amplitude, signal to noise ratio, and reference time for each detected signal
+>
+> Signals will be sine-Gaussians of the form
+> 
+> ```math
+> h(t) = A \cos(2\pi f_o (t-t_o) + \phi_o) \exp\left( -\frac{(t-t_o)^2}{2\tau^2} \right)
+> ```
+> 
+> Additionally, you can assume that the noise is stationary, Gaussian, and white.
+
+Simulated data was generated via
+
+```
+./make-data \
+    --seed 123 \
+    --duration 4096 \
+    --sample-rate 512 \
+    --noise-sigma 1.0 \
+    --signal-rate 0.01 \
+    --prior A 0.0 1.0 \
+    --prior fo 1.0 10.0 \
+    --prior tau 0.1 10.0 \
+    --verbose
+```
