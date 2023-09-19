@@ -56,3 +56,6 @@ data, params = utils.draw_data(t, args.noise_sigma, args.signal_rate, verbose=ar
 # write to disk
 utils.write_data('assignment-3.hdf', t, data, verbose=args.verbose)
 utils.write_params('assignment-3-params.hdf', params, verbose=args.verbose)
+
+# plot data
+utils.savefig('assignment-3.png', utils.plot_data(t, data, params), verbose=args.verbose)

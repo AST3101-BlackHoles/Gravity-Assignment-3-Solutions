@@ -4,9 +4,13 @@ __author__ = "Reed Essick (reed.essick@gmail.com)"
 
 #-------------------------------------------------
 
+import h5py
+
 import numpy as np
 
-import h5py
+import matplotlib
+matplotlib.use("Agg")
+from matplotlib import pyplot as plt
 
 #-------------------------------------------------
 
@@ -154,3 +158,50 @@ stationary, white Gaussian noise described by sigma
 
     # return
     return data, params
+
+#------------------------
+
+def plot_data(t, data, params):
+    """make a time-domain plot of the data with the location of signals overlaid
+    """
+
+    fig = plt.figure(figsize=(10,2))
+    ax = fig.add_axes([0.08, 0.20, 0.90, 0.78])
+
+    ax.plot(t, data, color='k', alpha=0.25)
+
+    for ind in range(len(params)):
+        sel = np.abs(t - params['to'][ind]) <= 6*params['tau'][ind]
+        h = sine_gaussian(
+            t[sel],
+            params['A'][ind],
+            params['to'][ind],
+            params['fo'][ind],
+            params['phio'][ind],
+            params['tau'][ind],
+        )
+        ax.plot(t[sel], h, alpha=0.75)
+
+    ax.set_xlabel('$t$')
+    ax.set_ylabel('$h$')
+
+    ax.tick_params(
+        left=True,
+        right=True,
+        top=True,
+        bottom=True,
+        direction='in',
+        which='both',
+    )
+
+    ax.set_xlim(t[0], t[-1])
+
+    return fig
+
+#------------------------
+
+def savefig(path, fig, verbose=False):
+    if verbose:
+        print('saving: '+path)
+    fig.savefig(path)
+    plt.close(fig)
