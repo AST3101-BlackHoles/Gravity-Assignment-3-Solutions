@@ -1,0 +1,42 @@
+#!/usr/bin/env python3
+
+"""a very simple matched-filter search for sine-Gaussian signals in stationary white noise
+"""
+__author__ = "Reed Essick (reed.essick@gmail.com)"
+
+#-------------------------------------------------
+
+import utils
+import numpy as np
+
+from argparse import ArgumentParser
+
+#-------------------------------------------------
+
+parser = ArgumentParser()
+
+parser.add_argument('data', type=str)
+
+parser.add_argument('-v', '--verbose', default=False, action='store_true')
+
+args = parser.parse_args()
+
+#-------------------------------------------------
+
+# load time-series data from disk
+time, data = utils.load_data(args.data, verbose=args.verbose)
+
+#------------------------
+
+# estimate the noise level (assuming quiet signals)
+
+sigma = np.std(data) ### assumes stationary, white Gaussian noise
+
+#------------------------
+
+raise NotImplementedError('''\
+generate template bank
+iterate over bank and compute SNR time-series for each template
+    identify peaks and associated parameters (including SNR)
+estimate significance of triggers
+''')
