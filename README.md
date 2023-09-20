@@ -25,7 +25,7 @@
 > 
 > Additionally, you can assume that the noise is stationary, Gaussian, and white.
 
-Simulated data was generated via
+Simulated data was generated via (this script is contained within Gravity-Assignment-3)
 
 ```
 ./make-data \
@@ -39,6 +39,10 @@ Simulated data was generated via
     --prior tau 0.1 10.0 \
     --verbose
 ```
+
+and we can see the signals in the data below:
+
+<img src="assignment-3.png">
 
 We run our search via
 ```
