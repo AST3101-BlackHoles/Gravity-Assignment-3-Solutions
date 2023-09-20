@@ -7,7 +7,7 @@ __author__ = "Reed Essick (reed.essick@gmail.com)"
 #-------------------------------------------------
 
 import utils
-import numpy as np
+np = utils.np
 
 from argparse import ArgumentParser
 
@@ -35,6 +35,7 @@ sigma = np.std(data) ### assumes stationary, white Gaussian noise
 #------------------------
 
 raise NotImplementedError('''\
+take an FFT of the data (filter in the frequency domain)
 generate template bank
 iterate over bank and compute SNR time-series for each template
     identify peaks and associated parameters (including SNR)
