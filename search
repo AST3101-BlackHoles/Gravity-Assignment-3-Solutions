@@ -17,6 +17,11 @@ parser = ArgumentParser()
 
 parser.add_argument('data', type=str)
 
+parser.add_argument('--fo', default=20.0, type=float)
+parser.add_argument('--tau', default=2.0, type=float)
+
+parser.add_argument('--tukey-alpha', default=0.25, type=float)
+
 parser.add_argument('-v', '--verbose', default=False, action='store_true')
 
 args = parser.parse_args()
@@ -26,18 +31,74 @@ args = parser.parse_args()
 # load time-series data from disk
 time, data = utils.load_data(args.data, verbose=args.verbose)
 
-#------------------------
-
-# estimate the noise level (assuming quiet signals)
-
+if args.verbose:
+    print('estimating time-domain noise properties assuming stationary, white Gaussian noise')
 sigma = np.std(data) ### assumes stationary, white Gaussian noise
 
 #------------------------
 
+# figure out relevant parameters for FFT and transform the data
+
+Nsmp = len(time)
+
+dt = time[1]-time[0]
+duration = dt*Nsmp
+
+nyquist = 0.5/dt # 0.5*sample_rate
+df = 1./duration
+
+# now compute the windowing function
+
+if args.verbose:
+    print('computing Tukey window function with alpha=%.3f' % args.tukey_alpha)
+
+window = utils.tukey_window(Nsmp, alpha=args.tukey_alpha)
+
+# compute Fourier Transform of data
+
+if args.verbose:
+    print('computing FFT of windowed data')
+
+freqs, dfd = utils.dft(data*window, dt=dt)
+
+#------------------------
+
+# generate a freq-domain waveform with the known parameters: (fo, tau)
+if args.verbose:
+    print('generating template with fo=%.3f and tau=%.3f' % (args.fo, args.tau))
+
+hfd = utils.sine_gaussian_freq_domain(freq, 1.0, 0.0, args.fo, 0.0, args.tau)
+
+### normalize template
+if args.verbose:
+    print('normalizing the template')
+
+hfd /= 4 * np.trapz(np.abs(hdf)**2 / sigma**2, x=freqs)**0.5
+
+#------------------------
+
+# compute SNR time series
+if args.verbose:
+    print('computing complex filter response as a function of time via FFT')
+
+raise NotImplementedError
+
+#------------------------
+
+# identify peaks
+if args.verbose:
+    print('identifying triggers (local maxima in SNR time-series)')
+
+raise NotImplementedError
+
+#------------------------
+
+# estimate statistical significance of each trigger
+if args.verbose:
+    print('estimating statistical significance of each trigger')
+
 raise NotImplementedError('''\
-take an FFT of the data (filter in the frequency domain)
-generate template bank
-iterate over bank and compute SNR time-series for each template
-    identify peaks and associated parameters (including SNR)
-estimate significance of triggers
+generate a lot of mock noise
+compute filter responses for each of these realizations
+make a cumulative histogram of the SNRs observed
 ''')
