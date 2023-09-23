@@ -27,6 +27,8 @@ and we can see the signals in the data below:
 
 <img src="assignment-3.png">
 
+There are clearly a few signals visible in the data "by eye".
+
 We grab the helper code from the assignment repo via
 
 ```
