@@ -1,0 +1,5 @@
+#!/bin/bash
+
+# grab the helper code from the assignment repo
+
+wget https://raw.githubusercontent.com/AST3101-BlackHoles/Gravity-Assignment-3/main/utils.py
