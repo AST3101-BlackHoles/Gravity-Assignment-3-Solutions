@@ -29,14 +29,14 @@ Simulated data was generated via (this script is contained within Gravity-Assign
 
 ```
 ./make-data \
-    --seed 123 \
+    --seed 123456789 \
     --duration 4096 \
     --sample-rate 512 \
     --noise-sigma 1.0 \
-    --signal-rate 0.01 \
-    --prior A 0.0 1.0 \
-    --prior fo 1.0 10.0 \
-    --prior tau 0.1 10.0 \
+    --signal-rate 0.005 \
+    --prior A 0.1 5.0 \
+    --prior fo 20.0 \
+    --prior tau 2.0 \
     --verbose
 ```
 
