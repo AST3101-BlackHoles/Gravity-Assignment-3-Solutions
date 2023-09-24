@@ -7,11 +7,59 @@ __author__ = "Reed Essick (reed.essick@gmail.com)"
 #-------------------------------------------------
 
 import os
+import sys
 
 import utils
 np = utils.np
 
 from argparse import ArgumentParser
+
+#-------------------------------------------------
+
+def filter_freq_domain(data_fd, template_fd, dt, snr_thr=0.0, verbose=False):
+    """perform filtering in frequency domain. return a set of peaks and snr time-series
+    """
+    if verbose:
+        print('computing complex filter response as a function of time via FFT')
+
+    # this can be computed via an DFT
+
+    snrtd_real, time = utils.idft(4 * np.conjugate(data_fd) * template_fd, dt)
+    snrtd_real = snrtd_real[::-1]
+    snrtd_imag = utils.idft(-4j * np.conjugate(data_fd) * template_fd, dt)[0][::-1]
+
+    # take the absolute magnitude
+    snrtd = (snrtd_real**2 + snrtd_imag**2)**0.5
+
+    #---
+
+    # identify peaks
+    if verbose:
+        print('identifying triggers (local maxima in SNR time-series)')
+
+    Nsmp = len(snrtd)
+
+    local_max = (snrtd[:-2] < snrtd[1:-1]) & (snrtd[1:-1] > snrtd[2:])
+    peak_inds = np.arange(1,Nsmp-1)[local_max]
+
+    # apply a basic threshold
+    loud_inds = peak_inds[snrtd[peak_inds] > snr_thr]
+
+    if verbose:
+        print('    found %d local maxima' % len(peak_inds))
+        print('    found %d local maxima with snr > %.3f' % (len(loud_inds), snr_thr))
+
+    if verbose:
+        print('estimating properties of each trigger')
+    params = np.empty(len(loud_inds), dtype=[('to', float), ('A', float), ('phio', float), ('FAR', float)])
+
+    params['to'] = time[loud_inds]
+    params['A'] = snrtd[loud_inds]
+    params['phio'] = np.arctan(-snrtd_imag[loud_inds]/snrtd_real[loud_inds])
+    params['FAR'] = np.nan
+
+    # return
+    return snrtd, snrtd_real, snrtd_imag, params
 
 #-------------------------------------------------
 
@@ -25,10 +73,18 @@ parser.add_argument('--tau', default=2.0, type=float)
 parser.add_argument('--tukey-alpha', default=0.25, type=float)
 
 parser.add_argument('--snr-thr', default=1.0, type=float)
+parser.add_argument('--num-noise-realizations', default=1000, type=int,
+    help='the number of noise realizations used to estimate background')
 
 parser.add_argument('-v', '--verbose', default=False, action='store_true')
+parser.add_argument('-V', '--Verbose', default=False, action='store_true')
+
+parser.add_argument('--plot-peaks', default=False, action='store_true')
+parser.add_argument('--plot-noise-realizations', default=False, action='store_true')
 
 args = parser.parse_args()
+
+args.verbose |= args.Verbose
 
 #-------------------------------------------------
 
@@ -39,7 +95,8 @@ time, data = utils.load_data(args.data, verbose=args.verbose)
 
 if args.verbose:
     print('estimating time-domain noise properties assuming stationary, white Gaussian noise')
-sigma = np.std(data) ### assumes stationary, white Gaussian noise
+
+sigmatd = np.std(data) ### assumes stationary, white Gaussian noise
 
 #------------------------
 
@@ -49,9 +106,6 @@ Nsmp = len(time)
 
 dt = time[1]-time[0]
 duration = dt*Nsmp
-
-nyquist = 0.5/dt # 0.5*sample_rate
-df = 1./duration
 
 # now compute the windowing function
 
@@ -90,51 +144,31 @@ phio = 0.0
 
 hfd = utils.sine_gaussian_freq_domain(freq, A, to, args.fo, phio, args.tau)
 
-### normalize template
-if args.verbose:
-    print('normalizing the template')
-
-hfd /= (4 * np.trapz((hfd.real**2 + hfd.imag**2) / sigma**2, x=freq))**0.5
-
 #------------------------
 
 # compute SNR time series
-if args.verbose:
-    print('computing complex filter response as a function of time via FFT')
+snrtd, snrtd_real, snrtd_imag, params = filter_freq_domain(
+    dfd,
+    hfd,
+    dt,
+    snr_thr=args.snr_thr,
+    verbose=args.verbose,
+)
 
-# this can be computed via an DFT
+#-----------
 
-snrtd_real = utils.idft(4 * np.conjugate(dfd) * hfd / sigma**2, dt)[0][::-1]
-snrtd_imag = utils.idft(-4j * np.conjugate(dfd) * hfd / sigma**2, dt)[0][::-1]
-
-# take the absolute magnitude
-snrtd = (snrtd_real**2 + snrtd_imag**2)**0.5
-
-#------------------------
-
-# identify peaks
-if args.verbose:
-    print('identifying triggers (local maxima in SNR time-series)')
-
-local_max = (snrtd[:-2] < snrtd[1:-1]) & (snrtd[1:-1] > snrtd[2:])
-peak_inds = np.arange(1,Nsmp-1)[local_max]
-
-# apply a basic threshold
-loud_inds = peak_inds[snrtd[peak_inds] > args.snr_thr]
-
-if args.verbose:
-    print('    found %d local maxima' % len(peak_inds))
-    print('    found %d local maxima with snr > %.3f' % (len(loud_inds), args.snr_thr))
-
-# make a plot
+# make plots
 if args.verbose:
     print('plotting data and snr time series')
 
 fig = utils.plot_data(time, snrtd, [], color='r', ylabel='$\\rho$')
 ax = fig.gca()
+
+ax.set_yscale('log')
+
 ylim = ax.get_ylim()
-for t in time[loud_inds]:
-    ax.plot([t]*2, ylim, color='k', alpha=0.25, zorder=-10)
+for t in params['to']:
+    ax.plot([t]*2, ylim, color='k', alpha=0.05, zorder=-10)
 ax.set_ylim(ylim)
 
 utils.savefig(
@@ -143,32 +177,130 @@ utils.savefig(
     verbose=args.verbose,
 )
 
-for ind in loud_inds:
-    sel = (time[ind]-args.tau*5 <= time) & (time <= time[ind]+args.tau*5)
+if args.plot_peaks:
+    for ind, to in enumerate(params['to']):
+        sel = (to-args.tau*5 <= time) & (time <= to+args.tau*5)
 
-    fig = utils.plot_data(time[sel], snrtd[sel], [], color='r')
-    utils.plot_data(time[sel], snrtd_real[sel], [], color='b', fig=fig)
-    utils.plot_data(time[sel], snrtd_imag[sel], [], color='c', ylabel='$\\rho$', fig=fig)
+        fig = utils.plot_data(time[sel], snrtd[sel], [], color='r')
+        utils.plot_data(time[sel], snrtd_real[sel], [], color='b', fig=fig)
+        utils.plot_data(time[sel], snrtd_imag[sel], [], color='c', ylabel='$\\rho$', fig=fig)
 
-    ax = fig.gca()
-    ylim = ax.get_ylim()
-    ax.plot([time[ind]]*2, ylim, color='k', alpha=0.25, zorder=-10)
-    ax.set_ylim(ylim)
+        ax = fig.gca()
 
-    utils.savefig(
-        os.path.basename(__file__) + '-snr-peak-%09d.png' % ind,
-        fig,
-        verbose=args.verbose,
-    )
+        ax.set_yscale('log')
 
-#------------------------
+        ylim = ax.get_ylim()
+        ax.plot([time[ind]]*2, ylim, color='k', alpha=0.25, zorder=-10)
+        ax.set_ylim(ylim)
+
+        utils.savefig(
+            os.path.basename(__file__) + '-snr-peak-%09d.png' % ind,
+            fig,
+            verbose=args.Verbose,
+        )
+
+#-----------
 
 # estimate statistical significance of each trigger
 if args.verbose:
-    print('estimating statistical significance of each trigger')
+    print('estimating statistical significance of each trigger using %d noise realizations' \
+        % args.num_noise_realizations)
 
-raise NotImplementedError('''\
-generate a lot of mock noise
-compute filter responses for each of these realizations
-make a cumulative histogram of the SNRs observed
-''')
+snrs = []
+for ind in range(args.num_noise_realizations):
+    if args.Verbose:
+        sys.stdout.write('\r    processing noise realization: %3d / %3d' % (ind, args.num_noise_realizations))
+        sys.stdout.flush()
+
+    noise = utils.draw_noise(time, sigmatd)
+
+    noise_snrtd, noise_snrtd_real, noise_snrtd_imag, noise_params = filter_freq_domain(
+        utils.dft(noise*window, dt)[0],
+        hfd,
+        dt,
+        snr_thr=args.snr_thr,
+    )
+    snrs += list(noise_params['A'])
+
+    if args.plot_noise_realizations:
+        fig = utils.plot_data(time, noise, [], color='k')
+        fig = utils.plot_data(time, max(np.abs(fig.gca().get_ylim()))*window, [], color='b', fig=fig)
+
+        utils.savefig(
+            os.path.basename(__file__) + '-noise-%06d.png' % ind,
+            fig,
+        )
+
+        fig = utils.plot_data(time, noise_snrtd, [], color='r')
+        fig = utils.plot_data(time, noise_snrtd_real, [], color='b', fig=fig)
+        fig = utils.plot_data(time, noise_snrtd_imag, [], color='c', ylabel='$\\rho$', fig=fig)
+        utils.savefig(
+            os.path.basename(__file__) + '-noise-snr-%06d.png' % ind,
+            fig,
+        )
+
+if args.Verbose:
+    sys.stdout.write('\n')
+    sys.stdout.flush()
+
+if args.verbose:
+    print('estimating background from %d peaks detected in %d noise realizations' \
+        % (len(snrs), args.num_noise_realizations))
+
+snrs = np.array(sorted(snrs)) # smallest to largest
+
+# expected number of background bigger than this value in one experiment
+FAR = 1.0*(len(snrs) - np.arange(len(snrs))) / (duration*args.num_noise_realizations)
+
+# now, assign FARs to real signals
+params['FAR'] = np.interp(params['A'], snrs, FAR)
+
+# make a plot of background
+if args.verbose:
+    print('plotting background estimate')
+
+fig = utils.plt.figure()
+ax = fig.add_axes([0.15, 0.15, 0.8, 0.8])
+
+ax.plot(snrs, FAR)
+
+ax.plot(
+    params['A'],
+    params['FAR'],
+    linestyle='none',
+    marker='o',
+    markeredgecolor='r',
+    markerfacecolor='none',
+    alpha=0.25,
+)
+
+ax.set_xlabel('$\\rho$')
+ax.set_ylabel('FAR [Hz]')
+
+ax.set_yscale('log')
+ax.set_xscale('log')
+
+ax.tick_params(
+        left=True,
+        right=True,
+        top=True,
+        bottom=True,
+        direction='in',
+        which='both',
+)
+
+utils.savefig(
+    os.path.basename(__file__)+'-background.png',
+    fig,
+    verbose=args.verbose,
+)
+
+#------------------------
+
+# write params of identified triggers to disk
+
+utils.write_params(
+    os.path.basename(__file__)+'-triggers.hdf',
+    params,
+    verbose=args.verbose,
+)

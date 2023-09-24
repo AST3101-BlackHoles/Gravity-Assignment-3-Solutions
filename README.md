@@ -17,7 +17,7 @@ Simulated data was generated via (this script is contained within Gravity-Assign
     --sample-rate 512 \
     --noise-sigma 1.0 \
     --signal-rate 0.005 \
-    --prior A 0.1 5.0 \
+    --prior A 0.001 10.0 \
     --prior fo 1.0 \
     --prior tau 2.0 \
     --verbose
@@ -36,14 +36,16 @@ We grab the helper code from the assignment repo via
 ```
 
 We run our search via
+
 ```
 ./search \
     assignment-3.hdf \
     --fo 1.0 \
     --tau 2.0 \
-    --snr-thr 0.50 \
+    --snr-thr 0.5 \
+    --num-noise-realizations 10000 \
     --tukey-alpha 0.05 \
-    --verbose
+    --Verbose
 ```
 
 which produces
@@ -52,4 +54,4 @@ which produces
 
 <img src="search-snr.png">
 
-**WRITE TABLE OF TRIGGER PROPERTIES**
+<img src="search-background.png">
