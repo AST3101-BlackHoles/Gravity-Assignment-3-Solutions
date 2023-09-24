@@ -262,8 +262,10 @@ if args.verbose:
 fig = utils.plt.figure()
 ax = fig.add_axes([0.15, 0.15, 0.8, 0.8])
 
+# plot the measured background rate
 ax.plot(snrs, FAR)
 
+# plot the observed triggers
 ax.plot(
     params['A'],
     params['FAR'],
@@ -274,11 +276,36 @@ ax.plot(
     alpha=0.25,
 )
 
-ax.set_xlabel('$\\rho$')
-ax.set_ylabel('FAR [Hz]')
-
 ax.set_yscale('log')
 ax.set_xscale('log')
+
+# annotate with the FAR that corresponds to 1 / experiment
+
+far = 1./duration
+snr = np.interp(far, FAR[::-1], snrs[::-1])
+
+xmin, xmax = ax.get_xlim()
+dx = (xmax/xmin)**0.01
+
+ymin, ymax = ax.get_ylim()
+
+ax.fill_between(
+    [xmin, snr],
+    [ymin]*2,
+    [ymax]*2,
+    color='k',
+    alpha=0.05,
+)
+ax.plot([xmin, snr], [far]*2, color='k', alpha=0.25)
+ax.text(snr*dx, far, '1/experiment', ha='left', va='center')
+
+ax.set_xlim(xmin=xmin)
+ax.set_ylim(ymin=ymin, ymax=ymax)
+
+# finish decorating
+
+ax.set_xlabel('$\\rho$')
+ax.set_ylabel('FAR [Hz]')
 
 ax.tick_params(
         left=True,
@@ -288,6 +315,8 @@ ax.tick_params(
         direction='in',
         which='both',
 )
+
+# save
 
 utils.savefig(
     os.path.basename(__file__)+'-background.png',
